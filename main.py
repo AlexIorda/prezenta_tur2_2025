@@ -40,11 +40,16 @@ def descarca_csv_ora(scrutin_str, data_str, ora_str):
         return True
     
     driver = webdriver.Chrome(options=options)
+    # Enable downloads via DevTools protocol
+    driver.execute_cdp_cmd("Page.setDownloadBehavior", {
+        "behavior": "allow",
+        "downloadPath": download_dir
+    })
 
     print(f"Descarc: {url}")
     try:
         driver.get(url)
-        time.sleep(5)  # Așteaptă descărcarea fișierului
+        time.sleep(6)  # Așteaptă descărcarea fișierului
     except Exception as e:
         print(f"Eroare la încărcarea URL-ului {url}: {e}")
     finally:
@@ -57,11 +62,15 @@ scrutin = "18052025"
 date = ['2025-05-16', '2025-05-17', '2025-05-18']
 ore = [f"{h:02d}-00" for h in range(8, 24)]
 
+timpi = []
 for data in date:
     for ora in ore:
-        if not descarca_csv_ora(scrutin, data, ora):
-            break
-        print(f"Fișierul pentru data {data} ora {ora} a fost descărcat.")
+        timpi.append((data, ora))
+
+for data, ora in timpi[:-2]:
+    if not descarca_csv_ora(scrutin, data, ora):
+        break
+    print(f"Fișierul pentru data {data} ora {ora} a fost descărcat.")
 
 # Scrutinul 2025 tur 1
 
@@ -69,11 +78,15 @@ scrutin = "04052025"
 date = ['2025-05-02', '2025-05-03', '2025-05-04']
 ore = [f"{h:02d}-00" for h in range(8, 24)]
 
+timpi = []
 for data in date:
     for ora in ore:
-        if not descarca_csv_ora(scrutin, data, ora):
-            break
-        print(f"Fișierul pentru data {data} ora {ora} a fost descărcat.")
+        timpi.append((data, ora))
+
+for data, ora in timpi[:-2]:
+    if not descarca_csv_ora(scrutin, data, ora):
+        break
+    print(f"Fișierul pentru data {data} ora {ora} a fost descărcat.")
 
 # Analiza
 import os
@@ -114,7 +127,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FuncFormatter
 
-fig, ax = plt.subplots(figsize=(20, 15))
+fig, ax = plt.subplots(figsize=(20, 10))
 
 # Plotezi liniile complet
 ax.plot(votanti_04052025, label='Tur 1 - 2025', color='blue')
@@ -181,7 +194,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FuncFormatter
 
-fig, ax = plt.subplots(figsize=(20, 15))
+fig, ax = plt.subplots(figsize=(20, 10))
 
 # Plotezi liniile complet
 ax.plot(votanti_04052025, label='Tur 1 - 2025', color='blue')
@@ -256,7 +269,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FuncFormatter
 
-fig, ax = plt.subplots(figsize=(20, 15))
+fig, ax = plt.subplots(figsize=(20, 10))
 
 # Plotezi liniile complet
 ax.plot(votanti_04052025, label='Tur 1 - 2025', color='blue')
