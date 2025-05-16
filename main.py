@@ -4,6 +4,8 @@ from selenium.webdriver.chrome.options import Options
 import time
 from datetime import timedelta, datetime
 import os
+import matplotlib
+matplotlib.use('Agg')
 
 def e_data_valida(data_str, ora_str):
     dt_str = f"{data_str} {ora_str.replace('-', ':')}"
