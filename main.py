@@ -106,615 +106,114 @@ def listeaza_csv_din_folder(folder_path):
         if f.endswith('.csv') and os.path.isfile(os.path.join(folder_path, f))
     ]
 
+import polars as pl
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter
+from pathlib import Path
+
+def extract_time(paths):
+    return [path.split('.')[0].split('_')[2] for path in paths]
+
+def read_votes(paths, date_folder, judet=None, uat=None):
+    results = []
+    for path in paths:
+        df = pl.read_csv(f'./data_total/{date_folder}/{path}')
+        if judet:
+            df = df.filter(pl.col('Judet') == judet)
+        if uat:
+            df = df.filter(pl.col('UAT') == uat)
+        if judet == 'SR' and uat is None:
+            df = df  # Diaspora
+        elif judet != 'SR' and judet is not None:
+            df = df.filter(pl.col('Judet') != 'SR')
+        results.append(df['LT'].sum())
+    return results
+
+def mil_formatter(x, pos):
+    val = x / 1_000_000
+    return f"{val:.1f} mil" if val % 1 else f"{int(val)} mil"
+
+def plot_votes(timp, vot1, vot2, titlu, filename, step_y=500_000):
+
+    while len(vot2) > 0 and vot2[0] == 0:
+        vot2.pop(0)
+        timp.pop(0)
+    
+    fig, ax = plt.subplots(figsize=(20, 10))
+    ax.plot(vot1, label='Tur 1 - 2025', color='blue')
+    ax.plot(vot2, label='Tur 2 - 2025', color='orange')
+
+    ax.set_xticks(range(len(timp)))
+    ax.set_xticklabels(timp, rotation=45)
+
+    all_vals = [v for v in vot1 + vot2 if v is not None]
+    max_v = max(all_vals) if all_vals else 0
+    ax.set_yticks(np.arange(0, max_v + step_y, step_y))
+    ax.yaxis.set_major_formatter(FuncFormatter(mil_formatter))
+
+    ax.set_xlabel("Ora")
+    ax.set_ylabel("Număr votanți")
+    ax.set_title(titlu)
+    ax.legend()
+    ax.grid(True)
+
+    # Calculezi procentajele doar pe intervalul comun (min_len)
+    min_len = min(len(vot1), len(vot2))
+    vot1_trim = np.array(vot1[:min_len])
+    vot2_trim = np.array(vot2[:min_len])
+
+    procent = (vot2_trim - vot1_trim) / vot1_trim * 100
+    for i, (x, y, p) in enumerate(zip(range(min_len), vot2[:min_len], procent)):
+        ax.text(x, y, f"{p:.0f}%", color='darkorange', fontsize=9, ha='center', va='bottom')
+
+    plt.tight_layout()
+    plt.savefig(filename, dpi=300, bbox_inches='tight')
+    plt.close()
+
+# === MAIN ===
+
 tur1_2025 = listeaza_csv_din_folder('./data_total/04052025')
 tur2_2025 = listeaza_csv_din_folder('./data_total/18052025')
-
-# Total
-
-votanti_04052025 = []
-timp_04052025 = [path.split('.')[0].split('_')[2] for path in tur1_2025]
-
-for path in tur1_2025:
-    df = pl.read_csv(f'./data_total/04052025/{path}')
-    votanti_04052025.append(df['LT'].sum())
-
-votanti_18052025 = []
-timp_18052025 = [path.split('.')[0].split('_')[2] for path in tur2_2025]
-
-for path in tur2_2025:
-    df = pl.read_csv(f'./data_total/18052025/{path}')
-    votanti_18052025.append(df['LT'].sum())
-
-import matplotlib.pyplot as plt
-import numpy as np
-from matplotlib.ticker import FuncFormatter
-
-fig, ax = plt.subplots(figsize=(20, 10))
-
-# Plotezi liniile complet
-ax.plot(votanti_04052025, label='Tur 1 - 2025', color='blue')
-ax.plot(votanti_18052025, label='Tur 2 - 2025', color='orange')
-
-# Setezi xticks pentru întreaga lungime a axei X (maxim lungimea turului 1)
-ax.set_xticks(range(len(timp_04052025)))
-ax.set_xticklabels(timp_04052025, rotation=45)
-
-max_v = max(max(votanti_04052025), max(votanti_18052025))
-yticks = np.arange(0, max_v + 500_000, 500_000)
-ax.set_yticks(yticks)
-
-def mil_formatter(x, pos):
-    val = x / 1_000_000
-    if val == int(val):
-        return f"{int(val)} mil"
-    else:
-        return f"{val:.1f} mil"
-
-ax.yaxis.set_major_formatter(FuncFormatter(mil_formatter))
-
-ax.set_xlabel("Ora")
-ax.set_ylabel("Număr votanți")
-ax.set_title("Prezența la vot - 04 vs 18 Mai 2025")
-ax.legend()
-ax.grid(True)
-
-# Calculezi procentajele doar pe intervalul comun (min_len)
-min_len = min(len(votanti_04052025), len(votanti_18052025))
-vot1_trim = np.array(votanti_04052025[:min_len])
-vot2_trim = np.array(votanti_18052025[:min_len])
-timp_trim = timp_04052025[:min_len]
-
-procent = (vot2_trim - vot1_trim) / vot1_trim * 100
-
-# Afișezi procentajele doar pentru punctele din intervalul comun
-for i, (x, y, p) in enumerate(zip(range(min_len), vot2_trim, procent)):
-    ax.text(x, y, f"{p:.0f}%", color='darkorange', fontsize=9, ha='center', va='bottom')
-
-plt.tight_layout()
-plt.savefig('votanti_2025.png', dpi=300, bbox_inches='tight')
-plt.clf()
-
-# Diaspora
-
-# diaspora = 'SR'
-
-votanti_04052025 = []
-timp_04052025 = [path.split('.')[0].split('_')[2] for path in tur1_2025]
-
-for path in tur1_2025:
-    df = pl.read_csv(f'./data_total/04052025/{path}')
-    votanti_04052025.append(df.filter(pl.col('Judet') == 'SR')['LT'].sum())
-
-votanti_18052025 = []
-timp_18052025 = [path.split('.')[0].split('_')[2] for path in tur2_2025]
-
-for path in tur2_2025:
-    df = pl.read_csv(f'./data_total/18052025/{path}')
-    votanti_18052025.append(df.filter(pl.col('Judet') == 'SR')['LT'].sum())
-
-import matplotlib.pyplot as plt
-import numpy as np
-from matplotlib.ticker import FuncFormatter
-
-fig, ax = plt.subplots(figsize=(20, 10))
-
-# Plotezi liniile complet
-ax.plot(votanti_04052025, label='Tur 1 - 2025', color='blue')
-ax.plot(votanti_18052025, label='Tur 2 - 2025', color='orange')
-
-# Setezi xticks pentru întreaga lungime a axei X (maxim lungimea turului 1)
-ax.set_xticks(range(len(timp_04052025)))
-ax.set_xticklabels(timp_04052025, rotation=45)
-
-max_v = max(max(votanti_04052025), max(votanti_18052025))
-yticks = np.arange(0, max_v + 100_000, 100_000)
-ax.set_yticks(yticks)
-
-def mil_formatter(x, pos):
-    val = x / 1_000_000
-    if val == int(val):
-        return f"{int(val)} mil"
-    else:
-        return f"{val:.1f} mil"
-
-ax.yaxis.set_major_formatter(FuncFormatter(mil_formatter))
-
-ax.set_xlabel("Ora")
-ax.set_ylabel("Număr votanți")
-ax.set_title("Prezența la vot in Diaspora - 04 vs 18 Mai 2025")
-ax.legend()
-ax.grid(True)
-
-# Calculezi procentajele doar pe intervalul comun (min_len)
-min_len = min(len(votanti_04052025), len(votanti_18052025))
-vot1_trim = np.array(votanti_04052025[:min_len])
-vot2_trim = np.array(votanti_18052025[:min_len])
-timp_trim = timp_04052025[:min_len]
-
-procent = (vot2_trim - vot1_trim) / vot1_trim * 100
-
-# Afișezi procentajele doar pentru punctele din intervalul comun
-for i, (x, y, p) in enumerate(zip(range(min_len), vot2_trim, procent)):
-    ax.text(x, y, f"{p:.0f}%", color='darkorange', fontsize=9, ha='center', va='bottom')
-
-plt.tight_layout()
-plt.savefig('votanti_diaspora_2025.png', dpi=300, bbox_inches='tight')
-plt.clf()
-
-# Romania
-
-# diaspora = 'SR'
-
-votanti_04052025 = []
-timp_04052025 = [path.split('.')[0].split('_')[2] for path in tur1_2025]
-
-for path in tur1_2025:
-    df = pl.read_csv(f'./data_total/04052025/{path}')
-    votanti_04052025.append(df.filter(pl.col('Judet') != 'SR')['LT'].sum())
-
-while len(votanti_04052025) > 0 and votanti_04052025[0] == 0:
-    votanti_04052025.pop(0)
-    timp_04052025.pop(0)
-
-votanti_18052025 = []
-timp_18052025 = [path.split('.')[0].split('_')[2] for path in tur2_2025]
-
-for path in tur2_2025:
-    df = pl.read_csv(f'./data_total/18052025/{path}')
-    votanti_18052025.append(df.filter(pl.col('Judet') != 'SR')['LT'].sum())
-
-while len(votanti_18052025) > 0 and votanti_18052025[0] == 0:
-    votanti_18052025.pop(0)
-    timp_18052025.pop(0)
-
-import matplotlib.pyplot as plt
-import numpy as np
-from matplotlib.ticker import FuncFormatter
-
-fig, ax = plt.subplots(figsize=(20, 10))
-
-# Plotezi liniile complet
-ax.plot(votanti_04052025, label='Tur 1 - 2025', color='blue')
-ax.plot(votanti_18052025, label='Tur 2 - 2025', color='orange')
-
-# Setezi xticks pentru întreaga lungime a axei X (maxim lungimea turului 1)
-ax.set_xticks(range(len(timp_04052025)))
-ax.set_xticklabels(timp_04052025, rotation=45)
-
-all_vals = [v for v in votanti_04052025 + votanti_18052025 if v is not None]
-max_v = max(all_vals) if all_vals else 0
-yticks = np.arange(0, max_v + 500_000, 500_000)
-ax.set_yticks(yticks)
-
-def mil_formatter(x, pos):
-    val = x / 1_000_000
-    if val == int(val):
-        return f"{int(val)} mil"
-    else:
-        return f"{val:.1f} mil"
-
-ax.yaxis.set_major_formatter(FuncFormatter(mil_formatter))
-
-ax.set_xlabel("Ora")
-ax.set_ylabel("Număr votanți")
-ax.set_title("Prezența la vot in Romania - 04 vs 18 Mai 2025")
-ax.legend()
-ax.grid(True)
-
-# Calculezi procentajele doar pe intervalul comun (min_len)
-min_len = min(len(votanti_04052025), len(votanti_18052025))
-vot1_trim = np.array(votanti_04052025[:min_len])
-vot2_trim = np.array(votanti_18052025[:min_len])
-timp_trim = timp_04052025[:min_len]
-
-procent = (vot2_trim - vot1_trim) / vot1_trim * 100
-
-# Afișezi procentajele doar pentru punctele din intervalul comun
-for i, (x, y, p) in enumerate(zip(range(min_len), vot2_trim, procent)):
-    ax.text(x, y, f"{p:.0f}%", color='darkorange', fontsize=9, ha='center', va='bottom')
-
-plt.tight_layout()
-plt.savefig('votanti_romania_2025.png', dpi=300, bbox_inches='tight')
-plt.clf()
-
-# Moldova
-
-# diaspora = 'SR'
-
-votanti_04052025 = []
-timp_04052025 = [path.split('.')[0].split('_')[2] for path in tur1_2025]
-
-for path in tur1_2025:
-    df = pl.read_csv(f'./data_total/04052025/{path}')
-    votanti_04052025.append(df.filter(pl.col('Judet') == 'SR').filter(pl.col('UAT') == "REPUBLICA MOLDOVA")['LT'].sum())
-
-votanti_18052025 = []
-timp_18052025 = [path.split('.')[0].split('_')[2] for path in tur2_2025]
-
-for path in tur2_2025:
-    df = pl.read_csv(f'./data_total/18052025/{path}')
-    votanti_18052025.append(df.filter(pl.col('Judet') == 'SR').filter(pl.col('UAT') == "REPUBLICA MOLDOVA")['LT'].sum())
-
-import matplotlib.pyplot as plt
-import numpy as np
-from matplotlib.ticker import FuncFormatter
-
-fig, ax = plt.subplots(figsize=(20, 10))
-
-# Plotezi liniile complet
-ax.plot(votanti_04052025, label='Tur 1 - 2025', color='blue')
-ax.plot(votanti_18052025, label='Tur 2 - 2025', color='orange')
-
-# Setezi xticks pentru întreaga lungime a axei X (maxim lungimea turului 1)
-ax.set_xticks(range(len(timp_04052025)))
-ax.set_xticklabels(timp_04052025, rotation=45)
-
-max_v = max(max(votanti_04052025), max(votanti_18052025))
-yticks = np.arange(0, max_v + 10_000, 10_000)
-ax.set_yticks(yticks)
-
-def mil_formatter(x, pos):
-    val = x / 1_000_000
-    if val == int(val):
-        return f"{int(val)} mil"
-    else:
-        return f"{val:.2f} mil"
-
-ax.yaxis.set_major_formatter(FuncFormatter(mil_formatter))
-
-ax.set_xlabel("Ora")
-ax.set_ylabel("Număr votanți")
-ax.set_title("Prezența la vot in Moldova - 04 vs 18 Mai 2025")
-ax.legend()
-ax.grid(True)
-
-# Calculezi procentajele doar pe intervalul comun (min_len)
-min_len = min(len(votanti_04052025), len(votanti_18052025))
-vot1_trim = np.array(votanti_04052025[:min_len])
-vot2_trim = np.array(votanti_18052025[:min_len])
-timp_trim = timp_04052025[:min_len]
-
-procent = (vot2_trim - vot1_trim) / vot1_trim * 100
-
-# Afișezi procentajele doar pentru punctele din intervalul comun
-for i, (x, y, p) in enumerate(zip(range(min_len), vot2_trim, procent)):
-    ax.text(x, y, f"{p:.0f}%", color='darkorange', fontsize=9, ha='center', va='bottom')
-
-plt.tight_layout()
-plt.savefig('votanti_moldova_2025.png', dpi=300, bbox_inches='tight')
-plt.clf()
-
-# UK
-
-# diaspora = 'SR'
-
-votanti_04052025 = []
-timp_04052025 = [path.split('.')[0].split('_')[2] for path in tur1_2025]
-
-for path in tur1_2025:
-    df = pl.read_csv(f'./data_total/04052025/{path}')
-    votanti_04052025.append(df.filter(pl.col('Judet') == 'SR').filter(pl.col('UAT') == "REGATUL UNIT AL MARII BRITANII ȘI AL IRLANDEI DE NORD")['LT'].sum())
-
-votanti_18052025 = []
-timp_18052025 = [path.split('.')[0].split('_')[2] for path in tur2_2025]
-
-for path in tur2_2025:
-    df = pl.read_csv(f'./data_total/18052025/{path}')
-    votanti_18052025.append(df.filter(pl.col('Judet') == 'SR').filter(pl.col('UAT') == "REGATUL UNIT AL MARII BRITANII ȘI AL IRLANDEI DE NORD")['LT'].sum())
-
-import matplotlib.pyplot as plt
-import numpy as np
-from matplotlib.ticker import FuncFormatter
-
-fig, ax = plt.subplots(figsize=(20, 10))
-
-# Plotezi liniile complet
-ax.plot(votanti_04052025, label='Tur 1 - 2025', color='blue')
-ax.plot(votanti_18052025, label='Tur 2 - 2025', color='orange')
-
-# Setezi xticks pentru întreaga lungime a axei X (maxim lungimea turului 1)
-ax.set_xticks(range(len(timp_04052025)))
-ax.set_xticklabels(timp_04052025, rotation=45)
-
-max_v = max(max(votanti_04052025), max(votanti_18052025))
-yticks = np.arange(0, max_v + 10_000, 10_000)
-ax.set_yticks(yticks)
-
-def mil_formatter(x, pos):
-    val = x / 1_000_000
-    if val == int(val):
-        return f"{int(val)} mil"
-    else:
-        return f"{val:.2f} mil"
-
-ax.yaxis.set_major_formatter(FuncFormatter(mil_formatter))
-
-ax.set_xlabel("Ora")
-ax.set_ylabel("Număr votanți")
-ax.set_title("Prezența la vot in UK - 04 vs 18 Mai 2025")
-ax.legend()
-ax.grid(True)
-
-# Calculezi procentajele doar pe intervalul comun (min_len)
-min_len = min(len(votanti_04052025), len(votanti_18052025))
-vot1_trim = np.array(votanti_04052025[:min_len])
-vot2_trim = np.array(votanti_18052025[:min_len])
-timp_trim = timp_04052025[:min_len]
-
-procent = (vot2_trim - vot1_trim) / vot1_trim * 100
-
-# Afișezi procentajele doar pentru punctele din intervalul comun
-for i, (x, y, p) in enumerate(zip(range(min_len), vot2_trim, procent)):
-    ax.text(x, y, f"{p:.0f}%", color='darkorange', fontsize=9, ha='center', va='bottom')
-
-plt.tight_layout()
-plt.savefig('votanti_uk_2025.png', dpi=300, bbox_inches='tight')
-plt.clf()
-
-# Italia
-
-# diaspora = 'SR'
-
-votanti_04052025 = []
-timp_04052025 = [path.split('.')[0].split('_')[2] for path in tur1_2025]
-
-for path in tur1_2025:
-    df = pl.read_csv(f'./data_total/04052025/{path}')
-    votanti_04052025.append(df.filter(pl.col('Judet') == 'SR').filter(pl.col('UAT') == "ITALIA")['LT'].sum())
-
-votanti_18052025 = []
-timp_18052025 = [path.split('.')[0].split('_')[2] for path in tur2_2025]
-
-for path in tur2_2025:
-    df = pl.read_csv(f'./data_total/18052025/{path}')
-    votanti_18052025.append(df.filter(pl.col('Judet') == 'SR').filter(pl.col('UAT') == "ITALIA")['LT'].sum())
-
-import matplotlib.pyplot as plt
-import numpy as np
-from matplotlib.ticker import FuncFormatter
-
-fig, ax = plt.subplots(figsize=(20, 10))
-
-# Plotezi liniile complet
-ax.plot(votanti_04052025, label='Tur 1 - 2025', color='blue')
-ax.plot(votanti_18052025, label='Tur 2 - 2025', color='orange')
-
-# Setezi xticks pentru întreaga lungime a axei X (maxim lungimea turului 1)
-ax.set_xticks(range(len(timp_04052025)))
-ax.set_xticklabels(timp_04052025, rotation=45)
-
-max_v = max(max(votanti_04052025), max(votanti_18052025))
-yticks = np.arange(0, max_v + 10_000, 10_000)
-ax.set_yticks(yticks)
-
-def mil_formatter(x, pos):
-    val = x / 1_000_000
-    if val == int(val):
-        return f"{int(val)} mil"
-    else:
-        return f"{val:.2f} mil"
-
-ax.yaxis.set_major_formatter(FuncFormatter(mil_formatter))
-
-ax.set_xlabel("Ora")
-ax.set_ylabel("Număr votanți")
-ax.set_title("Prezența la vot in Italia - 04 vs 18 Mai 2025")
-ax.legend()
-ax.grid(True)
-
-# Calculezi procentajele doar pe intervalul comun (min_len)
-min_len = min(len(votanti_04052025), len(votanti_18052025))
-vot1_trim = np.array(votanti_04052025[:min_len])
-vot2_trim = np.array(votanti_18052025[:min_len])
-timp_trim = timp_04052025[:min_len]
-
-procent = (vot2_trim - vot1_trim) / vot1_trim * 100
-
-# Afișezi procentajele doar pentru punctele din intervalul comun
-for i, (x, y, p) in enumerate(zip(range(min_len), vot2_trim, procent)):
-    ax.text(x, y, f"{p:.0f}%", color='darkorange', fontsize=9, ha='center', va='bottom')
-
-plt.tight_layout()
-plt.savefig('votanti_italia_2025.png', dpi=300, bbox_inches='tight')
-plt.clf()
-
-# Spania
-
-# diaspora = 'SR'
-
-votanti_04052025 = []
-timp_04052025 = [path.split('.')[0].split('_')[2] for path in tur1_2025]
-
-for path in tur1_2025:
-    df = pl.read_csv(f'./data_total/04052025/{path}')
-    votanti_04052025.append(df.filter(pl.col('Judet') == 'SR').filter(pl.col('UAT') == "SPANIA")['LT'].sum())
-
-votanti_18052025 = []
-timp_18052025 = [path.split('.')[0].split('_')[2] for path in tur2_2025]
-
-for path in tur2_2025:
-    df = pl.read_csv(f'./data_total/18052025/{path}')
-    votanti_18052025.append(df.filter(pl.col('Judet') == 'SR').filter(pl.col('UAT') == "SPANIA")['LT'].sum())
-
-import matplotlib.pyplot as plt
-import numpy as np
-from matplotlib.ticker import FuncFormatter
-
-fig, ax = plt.subplots(figsize=(20, 10))
-
-# Plotezi liniile complet
-ax.plot(votanti_04052025, label='Tur 1 - 2025', color='blue')
-ax.plot(votanti_18052025, label='Tur 2 - 2025', color='orange')
-
-# Setezi xticks pentru întreaga lungime a axei X (maxim lungimea turului 1)
-ax.set_xticks(range(len(timp_04052025)))
-ax.set_xticklabels(timp_04052025, rotation=45)
-
-max_v = max(max(votanti_04052025), max(votanti_18052025))
-yticks = np.arange(0, max_v + 10_000, 10_000)
-ax.set_yticks(yticks)
-
-def mil_formatter(x, pos):
-    val = x / 1_000_000
-    if val == int(val):
-        return f"{int(val)} mil"
-    else:
-        return f"{val:.2f} mil"
-
-ax.yaxis.set_major_formatter(FuncFormatter(mil_formatter))
-
-ax.set_xlabel("Ora")
-ax.set_ylabel("Număr votanți")
-ax.set_title("Prezența la vot in Spania - 04 vs 18 Mai 2025")
-ax.legend()
-ax.grid(True)
-
-# Calculezi procentajele doar pe intervalul comun (min_len)
-min_len = min(len(votanti_04052025), len(votanti_18052025))
-vot1_trim = np.array(votanti_04052025[:min_len])
-vot2_trim = np.array(votanti_18052025[:min_len])
-timp_trim = timp_04052025[:min_len]
-
-procent = (vot2_trim - vot1_trim) / vot1_trim * 100
-
-# Afișezi procentajele doar pentru punctele din intervalul comun
-for i, (x, y, p) in enumerate(zip(range(min_len), vot2_trim, procent)):
-    ax.text(x, y, f"{p:.0f}%", color='darkorange', fontsize=9, ha='center', va='bottom')
-
-plt.tight_layout()
-plt.savefig('votanti_spania_2025.png', dpi=300, bbox_inches='tight')
-plt.clf()
-
-# Franta
-
-# diaspora = 'SR'
-
-votanti_04052025 = []
-timp_04052025 = [path.split('.')[0].split('_')[2] for path in tur1_2025]
-
-for path in tur1_2025:
-    df = pl.read_csv(f'./data_total/04052025/{path}')
-    votanti_04052025.append(df.filter(pl.col('Judet') == 'SR').filter(pl.col('UAT') == "FRANȚA")['LT'].sum())
-
-votanti_18052025 = []
-timp_18052025 = [path.split('.')[0].split('_')[2] for path in tur2_2025]
-
-for path in tur2_2025:
-    df = pl.read_csv(f'./data_total/18052025/{path}')
-    votanti_18052025.append(df.filter(pl.col('Judet') == 'SR').filter(pl.col('UAT') == "FRANȚA")['LT'].sum())
-
-import matplotlib.pyplot as plt
-import numpy as np
-from matplotlib.ticker import FuncFormatter
-
-fig, ax = plt.subplots(figsize=(20, 10))
-
-# Plotezi liniile complet
-ax.plot(votanti_04052025, label='Tur 1 - 2025', color='blue')
-ax.plot(votanti_18052025, label='Tur 2 - 2025', color='orange')
-
-# Setezi xticks pentru întreaga lungime a axei X (maxim lungimea turului 1)
-ax.set_xticks(range(len(timp_04052025)))
-ax.set_xticklabels(timp_04052025, rotation=45)
-
-max_v = max(max(votanti_04052025), max(votanti_18052025))
-yticks = np.arange(0, max_v + 10_000, 10_000)
-ax.set_yticks(yticks)
-
-def mil_formatter(x, pos):
-    val = x / 1_000_000
-    if val == int(val):
-        return f"{int(val)} mil"
-    else:
-        return f"{val:.2f} mil"
-
-ax.yaxis.set_major_formatter(FuncFormatter(mil_formatter))
-
-ax.set_xlabel("Ora")
-ax.set_ylabel("Număr votanți")
-ax.set_title("Prezența la vot in Franta - 04 vs 18 Mai 2025")
-ax.legend()
-ax.grid(True)
-
-# Calculezi procentajele doar pe intervalul comun (min_len)
-min_len = min(len(votanti_04052025), len(votanti_18052025))
-vot1_trim = np.array(votanti_04052025[:min_len])
-vot2_trim = np.array(votanti_18052025[:min_len])
-timp_trim = timp_04052025[:min_len]
-
-procent = (vot2_trim - vot1_trim) / vot1_trim * 100
-
-# Afișezi procentajele doar pentru punctele din intervalul comun
-for i, (x, y, p) in enumerate(zip(range(min_len), vot2_trim, procent)):
-    ax.text(x, y, f"{p:.0f}%", color='darkorange', fontsize=9, ha='center', va='bottom')
-
-plt.tight_layout()
-plt.savefig('votanti_franta_2025.png', dpi=300, bbox_inches='tight')
-plt.clf()
-
-# Germania
-
-# diaspora = 'SR'
-
-votanti_04052025 = []
-timp_04052025 = [path.split('.')[0].split('_')[2] for path in tur1_2025]
-
-for path in tur1_2025:
-    df = pl.read_csv(f'./data_total/04052025/{path}')
-    votanti_04052025.append(df.filter(pl.col('Judet') == 'SR').filter(pl.col('UAT') == "GERMANIA")['LT'].sum())
-
-votanti_18052025 = []
-timp_18052025 = [path.split('.')[0].split('_')[2] for path in tur2_2025]
-
-for path in tur2_2025:
-    df = pl.read_csv(f'./data_total/18052025/{path}')
-    votanti_18052025.append(df.filter(pl.col('Judet') == 'SR').filter(pl.col('UAT') == "GERMANIA")['LT'].sum())
-
-import matplotlib.pyplot as plt
-import numpy as np
-from matplotlib.ticker import FuncFormatter
-
-fig, ax = plt.subplots(figsize=(20, 10))
-
-# Plotezi liniile complet
-ax.plot(votanti_04052025, label='Tur 1 - 2025', color='blue')
-ax.plot(votanti_18052025, label='Tur 2 - 2025', color='orange')
-
-# Setezi xticks pentru întreaga lungime a axei X (maxim lungimea turului 1)
-ax.set_xticks(range(len(timp_04052025)))
-ax.set_xticklabels(timp_04052025, rotation=45)
-
-max_v = max(max(votanti_04052025), max(votanti_18052025))
-yticks = np.arange(0, max_v + 10_000, 10_000)
-ax.set_yticks(yticks)
-
-def mil_formatter(x, pos):
-    val = x / 1_000_000
-    if val == int(val):
-        return f"{int(val)} mil"
-    else:
-        return f"{val:.2f} mil"
-
-ax.yaxis.set_major_formatter(FuncFormatter(mil_formatter))
-
-ax.set_xlabel("Ora")
-ax.set_ylabel("Număr votanți")
-ax.set_title("Prezența la vot in Germania - 04 vs 18 Mai 2025")
-ax.legend()
-ax.grid(True)
-
-# Calculezi procentajele doar pe intervalul comun (min_len)
-min_len = min(len(votanti_04052025), len(votanti_18052025))
-vot1_trim = np.array(votanti_04052025[:min_len])
-vot2_trim = np.array(votanti_18052025[:min_len])
-timp_trim = timp_04052025[:min_len]
-
-procent = (vot2_trim - vot1_trim) / vot1_trim * 100
-
-# Afișezi procentajele doar pentru punctele din intervalul comun
-for i, (x, y, p) in enumerate(zip(range(min_len), vot2_trim, procent)):
-    ax.text(x, y, f"{p:.0f}%", color='darkorange', fontsize=9, ha='center', va='bottom')
-
-plt.tight_layout()
-plt.savefig('votanti_germania_2025.png', dpi=300, bbox_inches='tight')
-plt.clf()
+timp = extract_time(tur1_2025)
+
+# 1. Total
+vot1_total = read_votes(tur1_2025, '04052025')
+vot2_total = read_votes(tur2_2025, '18052025')
+plot_votes(timp, vot1_total, vot2_total, "Prezența la vot - 04 vs 18 Mai 2025", "votanti_2025.png")
+
+# 2. Diaspora
+vot1_diaspora = read_votes(tur1_2025, '04052025', judet='SR')
+vot2_diaspora = read_votes(tur2_2025, '18052025', judet='SR')
+plot_votes(timp, vot1_diaspora, vot2_diaspora, "Prezența la vot în Diaspora - 04 vs 18 Mai 2025", "votanti_diaspora_2025.png", step_y=100_000)
+
+# 3. România (fără diaspora)
+vot1_ro = read_votes(tur1_2025, '04052025', judet='RO')  # intern
+vot2_ro = read_votes(tur2_2025, '18052025', judet='RO')
+plot_votes(timp, vot1_ro, vot2_ro, "Prezența la vot în România - 04 vs 18 Mai 2025", "votanti_romania_2025.png")
+
+# 4. Moldova
+vot1_md = read_votes(tur1_2025, '04052025', judet='SR', uat="REPUBLICA MOLDOVA")
+vot2_md = read_votes(tur2_2025, '18052025', judet='SR', uat="REPUBLICA MOLDOVA")
+plot_votes(timp, vot1_md, vot2_md, "Prezența la vot în Moldova - 04 vs 18 Mai 2025", "votanti_moldova_2025.png", step_y=10_000)
+
+# 5. UK
+vot1_uk = read_votes(tur1_2025, '04052025', judet='SR', uat="REGATUL UNIT AL MARII BRITANII ȘI AL IRLANDEI DE NORD")
+vot2_uk = read_votes(tur2_2025, '18052025', judet='SR', uat="REGATUL UNIT AL MARII BRITANII ȘI AL IRLANDEI DE NORD")
+plot_votes(timp, vot1_uk, vot2_uk, "Prezența la vot în UK - 04 vs 18 Mai 2025", "votanti_uk_2025.png", step_y=10_000)
+
+# 6. Italia
+vot1_it = read_votes(tur1_2025, '04052025', judet='SR', uat="ITALIA")
+vot2_it = read_votes(tur2_2025, '18052025', judet='SR', uat="ITALIA")
+plot_votes(timp, vot1_it, vot2_it, "Prezența la vot în Italia - 04 vs 18 Mai 2025", "votanti_italia_2025.png", step_y=10_000)
+
+# Poți continua cu alte țări la fel (Spania, Germania etc.)
+# 7. Spania
+vot1_es = read_votes(tur1_2025, '04052025', judet='SR', uat="SPANIA")
+vot2_es = read_votes(tur2_2025, '18052025', judet='SR', uat="SPANIA")
+plot_votes(timp, vot1_es, vot2_es, "Prezența la vot în Spania - 04 vs 18 Mai 2025", "votanti_spania_2025.png", step_y=10_000)
+
+# 8. Germania
+vot1_de = read_votes(tur1_2025, '04052025', judet='SR', uat="GERMANIA")
+vot2_de = read_votes(tur2_2025, '18052025', judet='SR', uat="GERMANIA")
+plot_votes(timp, vot1_de, vot2_de, "Prezența la vot în Germania - 04 vs 18 Mai 2025", "votanti_germania_2025.png", step_y=10_000)
