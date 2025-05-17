@@ -651,3 +651,70 @@ for i, (x, y, p) in enumerate(zip(range(min_len), vot2_trim, procent)):
 plt.tight_layout()
 plt.savefig('votanti_franta_2025.png', dpi=300, bbox_inches='tight')
 plt.clf()
+
+# Germania
+
+# diaspora = 'SR'
+
+votanti_04052025 = []
+timp_04052025 = [path.split('.')[0].split('_')[2] for path in tur1_2025]
+
+for path in tur1_2025:
+    df = pl.read_csv(f'./data_total/04052025/{path}')
+    votanti_04052025.append(df.filter(pl.col('Judet') == 'SR').filter(pl.col('UAT') == "GERMANIA")['LT'].sum())
+
+votanti_18052025 = []
+timp_18052025 = [path.split('.')[0].split('_')[2] for path in tur2_2025]
+
+for path in tur2_2025:
+    df = pl.read_csv(f'./data_total/18052025/{path}')
+    votanti_18052025.append(df.filter(pl.col('Judet') == 'SR').filter(pl.col('UAT') == "GERMANIA")['LT'].sum())
+
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.ticker import FuncFormatter
+
+fig, ax = plt.subplots(figsize=(20, 10))
+
+# Plotezi liniile complet
+ax.plot(votanti_04052025, label='Tur 1 - 2025', color='blue')
+ax.plot(votanti_18052025, label='Tur 2 - 2025', color='orange')
+
+# Setezi xticks pentru întreaga lungime a axei X (maxim lungimea turului 1)
+ax.set_xticks(range(len(timp_04052025)))
+ax.set_xticklabels(timp_04052025, rotation=45)
+
+max_v = max(max(votanti_04052025), max(votanti_18052025))
+yticks = np.arange(0, max_v + 10_000, 10_000)
+ax.set_yticks(yticks)
+
+def mil_formatter(x, pos):
+    val = x / 1_000_000
+    if val == int(val):
+        return f"{int(val)} mil"
+    else:
+        return f"{val:.2f} mil"
+
+ax.yaxis.set_major_formatter(FuncFormatter(mil_formatter))
+
+ax.set_xlabel("Ora")
+ax.set_ylabel("Număr votanți")
+ax.set_title("Prezența la vot in Germania - 04 vs 18 Mai 2025")
+ax.legend()
+ax.grid(True)
+
+# Calculezi procentajele doar pe intervalul comun (min_len)
+min_len = min(len(votanti_04052025), len(votanti_18052025))
+vot1_trim = np.array(votanti_04052025[:min_len])
+vot2_trim = np.array(votanti_18052025[:min_len])
+timp_trim = timp_04052025[:min_len]
+
+procent = (vot2_trim - vot1_trim) / vot1_trim * 100
+
+# Afișezi procentajele doar pentru punctele din intervalul comun
+for i, (x, y, p) in enumerate(zip(range(min_len), vot2_trim, procent)):
+    ax.text(x, y, f"{p:.0f}%", color='darkorange', fontsize=9, ha='center', va='bottom')
+
+plt.tight_layout()
+plt.savefig('votanti_germania_2025.png', dpi=300, bbox_inches='tight')
+plt.clf()
