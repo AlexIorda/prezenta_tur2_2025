@@ -132,13 +132,9 @@ def read_votes(paths, date_folder, judet=None, uat=None):
 
 def mil_formatter(x, pos):
     val = x / 1_000_000
-    return f"{val:.1f} mil" if val % 1 else f"{int(val)} mil"
+    return f"{val:.2f} mil" if val % 1 else f"{int(val)} mil"
 
 def plot_votes(timp, vot1, vot2, titlu, filename, step_y=500_000):
-
-    while len(vot2) > 0 and vot2[0] == 0:
-        vot2.pop(0)
-        timp.pop(0)
     
     fig, ax = plt.subplots(figsize=(20, 10))
     ax.plot(vot1, label='Tur 1 - 2025', color='blue')
@@ -162,10 +158,12 @@ def plot_votes(timp, vot1, vot2, titlu, filename, step_y=500_000):
     min_len = min(len(vot1), len(vot2))
     vot1_trim = np.array(vot1[:min_len])
     vot2_trim = np.array(vot2[:min_len])
-
-    procent = (vot2_trim - vot1_trim) / vot1_trim * 100
-    for i, (x, y, p) in enumerate(zip(range(min_len), vot2[:min_len], procent)):
-        ax.text(x, y, f"{p:.0f}%", color='darkorange', fontsize=9, ha='center', va='bottom')
+    procent = []
+    for v1, v2 in zip(vot1_trim, vot2_trim):
+        if v1 == 0 or np.isnan(v1):
+            procent.append(np.nan)
+        else:
+            procent.append((v2 - v1) / v1 * 100)
 
     plt.tight_layout()
     plt.savefig(filename, dpi=300, bbox_inches='tight')
@@ -217,3 +215,8 @@ plot_votes(timp, vot1_es, vot2_es, "Prezența la vot în Spania - 04 vs 18 Mai 2
 vot1_de = read_votes(tur1_2025, '04052025', judet='SR', uat="GERMANIA")
 vot2_de = read_votes(tur2_2025, '18052025', judet='SR', uat="GERMANIA")
 plot_votes(timp, vot1_de, vot2_de, "Prezența la vot în Germania - 04 vs 18 Mai 2025", "votanti_germania_2025.png", step_y=10_000)
+
+# 9. Franța
+vot1_fr = read_votes(tur1_2025, '04052025', judet='SR', uat="FRANȚA")
+vot2_fr = read_votes(tur2_2025, '18052025', judet='SR', uat="FRANȚA")
+plot_votes(timp, vot1_fr, vot2_fr, "Prezența la vot în Franța - 04 vs 18 Mai 2025", "votanti_franta_2025.png", step_y=10_000)
