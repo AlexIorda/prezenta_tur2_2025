@@ -120,7 +120,10 @@ def read_votes(paths, date_folder, judet=None, uat=None):
     for path in paths:
         df = pl.read_csv(f'./data_total/{date_folder}/{path}')
         if judet:
-            df = df.filter(pl.col('Judet') == judet)
+            if judet == 'RO':
+                df = df.filter(pl.col('Judet') != 'SR')
+            else:
+                df = df.filter(pl.col('Judet') == judet)
         if uat:
             df = df.filter(pl.col('UAT') == uat)
         if judet == 'SR' and uat is None:
@@ -135,15 +138,19 @@ def mil_formatter(x, pos):
     return f"{val:.2f} mil" if val % 1 else f"{int(val)} mil"
 
 def plot_votes(timp, vot1, vot2, titlu, filename, step_y=500_000):
-    
+
+    begin_x = 0
+    while begin_x < len(vot1) and begin_x < len(vot2) and vot1[begin_x] == vot2[begin_x] == 0:
+        begin_x += 1
+
     fig, ax = plt.subplots(figsize=(20, 10))
-    ax.plot(vot1, label='Tur 1 - 2025', color='blue')
-    ax.plot(vot2, label='Tur 2 - 2025', color='orange')
+    ax.plot(vot1[begin_x:], label='Tur 1 - 2025', color='blue')
+    ax.plot(vot2[begin_x:], label='Tur 2 - 2025', color='orange')
 
-    ax.set_xticks(range(len(timp)))
-    ax.set_xticklabels(timp, rotation=45)
+    ax.set_xticks(range(len(timp[begin_x:])))
+    ax.set_xticklabels(timp[begin_x:], rotation=45)
 
-    all_vals = [v for v in vot1 + vot2 if v is not None]
+    all_vals = [v for v in vot1[begin_x:] + vot2[begin_x:] if v is not None]
     max_v = max(all_vals) if all_vals else 0
     ax.set_yticks(np.arange(0, max_v + step_y, step_y))
     ax.yaxis.set_major_formatter(FuncFormatter(mil_formatter))
@@ -155,15 +162,14 @@ def plot_votes(timp, vot1, vot2, titlu, filename, step_y=500_000):
     ax.grid(True)
 
     # Calculezi procentajele doar pe intervalul comun (min_len)
-    min_len = min(len(vot1), len(vot2))
-    vot1_trim = np.array(vot1[:min_len])
-    vot2_trim = np.array(vot2[:min_len])
-    procent = []
-    for v1, v2 in zip(vot1_trim, vot2_trim):
-        if v1 == 0 or np.isnan(v1):
-            procent.append(np.nan)
-        else:
-            procent.append((v2 - v1) / v1 * 100)
+    min_len = min(len(vot1[begin_x:]), len(vot2[begin_x:]))
+    vot1_trim = np.array(vot1[begin_x:begin_x+min_len])
+    vot2_trim = np.array(vot2[begin_x:begin_x+min_len])
+    procent = (vot2_trim - vot1_trim) / (vot1_trim + 0.000001) * 100
+
+    # Afișezi procentajele doar pentru punctele din intervalul comun
+    for i, (x, y, p) in enumerate(zip(range(min_len), vot2_trim, procent)):
+        ax.text(x, y, f"{p:.0f}%", color='darkorange', fontsize=9, ha='center', va='bottom')
 
     plt.tight_layout()
     plt.savefig(filename, dpi=300, bbox_inches='tight')
