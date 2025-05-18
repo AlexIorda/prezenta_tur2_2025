@@ -115,7 +115,7 @@ from pathlib import Path
 def extract_time(paths):
     return [path.split('.')[0].split('_')[2] for path in paths]
 
-def read_votes(paths, date_folder, judet=None, uat=None):
+def read_votes(paths, date_folder, judet=None, uat=None, localitate=None):
     results = []
     for path in paths:
         df = pl.read_csv(f'./data_total/{date_folder}/{path}')
@@ -130,6 +130,8 @@ def read_votes(paths, date_folder, judet=None, uat=None):
             df = df  # Diaspora
         elif judet != 'SR' and judet is not None:
             df = df.filter(pl.col('Judet') != 'SR')
+        if localitate:
+            df = df.filter(pl.col('Localitate').str.contains(localitate))
         results.append(df['LT'].sum())
     return results
 
@@ -211,7 +213,6 @@ vot1_it = read_votes(tur1_2025, '04052025', judet='SR', uat="ITALIA")
 vot2_it = read_votes(tur2_2025, '18052025', judet='SR', uat="ITALIA")
 plot_votes(timp, vot1_it, vot2_it, "Prezența la vot în Italia - 04 vs 18 Mai 2025", "votanti_italia_2025.png", step_y=10_000)
 
-# Poți continua cu alte țări la fel (Spania, Germania etc.)
 # 7. Spania
 vot1_es = read_votes(tur1_2025, '04052025', judet='SR', uat="SPANIA")
 vot2_es = read_votes(tur2_2025, '18052025', judet='SR', uat="SPANIA")
@@ -226,3 +227,33 @@ plot_votes(timp, vot1_de, vot2_de, "Prezența la vot în Germania - 04 vs 18 Mai
 vot1_fr = read_votes(tur1_2025, '04052025', judet='SR', uat="FRANȚA")
 vot2_fr = read_votes(tur2_2025, '18052025', judet='SR', uat="FRANȚA")
 plot_votes(timp, vot1_fr, vot2_fr, "Prezența la vot în Franța - 04 vs 18 Mai 2025", "votanti_franta_2025.png", step_y=10_000)
+
+# 10. Bucuresti
+vot1_fr = read_votes(tur1_2025, '04052025', judet='B', localitate="BUCUREŞTI SECTOR")
+vot2_fr = read_votes(tur2_2025, '18052025', judet='B', localitate="BUCUREŞTI SECTOR")
+plot_votes(timp, vot1_fr, vot2_fr, "Prezența la vot în Bucuresti - 04 vs 18 Mai 2025", "votanti_franta_2025.png", step_y=10_000)
+
+# 11. Cluj
+vot1_fr = read_votes(tur1_2025, '04052025', judet='CJ', localitate="CLUJ-NAPOCA")
+vot2_fr = read_votes(tur2_2025, '18052025', judet='CJ', localitate="CLUJ-NAPOCA")
+plot_votes(timp, vot1_fr, vot2_fr, "Prezența la vot în Cluj-Napoca - 04 vs 18 Mai 2025", "votanti_cluj_2025.png", step_y=10_000)
+
+# 12. Timisoara
+vot1_fr = read_votes(tur1_2025, '04052025', judet='TM', localitate="TIMIŞOARA")
+vot2_fr = read_votes(tur2_2025, '18052025', judet='TM', localitate="TIMIŞOARA")
+plot_votes(timp, vot1_fr, vot2_fr, "Prezența la vot în Timisoara - 04 vs 18 Mai 2025", "votanti_timisoara_2025.png", step_y=10_000)
+
+# 13. Iasi
+vot1_fr = read_votes(tur1_2025, '04052025', judet='IS', localitate="IAŞI")
+vot2_fr = read_votes(tur2_2025, '18052025', judet='IS', localitate="IAŞI")
+plot_votes(timp, vot1_fr, vot2_fr, "Prezența la vot în Iasi - 04 vs 18 Mai 2025", "votanti_iasi_2025.png", step_y=10_000)
+
+# 14. Brasov
+vot1_fr = read_votes(tur1_2025, '04052025', judet='BV', localitate="BRAŞOV")
+vot2_fr = read_votes(tur2_2025, '18052025', judet='BV', localitate="BRAŞOV")
+plot_votes(timp, vot1_fr, vot2_fr, "Prezența la vot în Brasov - 04 vs 18 Mai 2025", "votanti_brasov_2025.png", step_y=10_000)
+
+# 15. Sibiu
+vot1_fr = read_votes(tur1_2025, '04052025', judet='SB', localitate="SIBIU")
+vot2_fr = read_votes(tur2_2025, '18052025', judet='SB', localitate="SIBIU")
+plot_votes(timp, vot1_fr, vot2_fr, "Prezența la vot în Sibiu - 04 vs 18 Mai 2025", "votanti_sibiu_2025.png", step_y=10_000)
