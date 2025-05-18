@@ -231,7 +231,7 @@ plot_votes(timp, vot1_fr, vot2_fr, "Prezența la vot în Franța - 04 vs 18 Mai 
 # 10. Bucuresti
 vot1_fr = read_votes(tur1_2025, '04052025', judet='B', localitate="BUCUREŞTI SECTOR")
 vot2_fr = read_votes(tur2_2025, '18052025', judet='B', localitate="BUCUREŞTI SECTOR")
-plot_votes(timp, vot1_fr, vot2_fr, "Prezența la vot în Bucuresti - 04 vs 18 Mai 2025", "votanti_franta_2025.png", step_y=10_000)
+plot_votes(timp, vot1_fr, vot2_fr, "Prezența la vot în Bucuresti - 04 vs 18 Mai 2025", "votanti_bucuresti_2025.png", step_y=100_000)
 
 # 11. Cluj
 vot1_fr = read_votes(tur1_2025, '04052025', judet='CJ', localitate="CLUJ-NAPOCA")
